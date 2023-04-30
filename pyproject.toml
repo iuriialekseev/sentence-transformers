@@ -1,0 +1,23 @@
+[tool.poetry]
+name = "alix"
+version = "0.1.0"
+description = ""
+authors = ["Iurii Alekseev <iurii.alekseev.inbox@gmail.com>"]
+readme = "README.md"
+
+[tool.poetry.dependencies]
+python = "^3.11"
+numpy = "^1.24.3"
+sentence-transformers = "^2.2.2"
+flask = "^2.3.1"
+openai = "^0.27.5"
+
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"
+
+[tool.pyright]
+typeCheckingMode = "off"
+venvPath = "/Users/yuriyalekseyev/Library/Caches/pypoetry/virtualenvs"
+venv = "alix-1dor1VEk-py3.11"
