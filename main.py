@@ -1,38 +1,55 @@
-from flask import Flask, request, jsonify
-from sentence_transformers import SentenceTransformer, util
+from fastapi import FastAPI
+from pydantic import BaseModel
+from model import Model
+from cache import Cache
+from typing import List
 
-model = SentenceTransformer('all-MiniLM-L12-v2')
-model = SentenceTransformer('paraphrase-multilingual-MiniLM-L12-v2')
+app = FastAPI()
 
-app = Flask(__name__)
+model = Model()
+cache = Cache()
 
 
-@app.route('/compare', methods=['POST'])
-def compare_sentences():
-    data = request.get_json()
+class CompareData(BaseModel):
+    originals: List[str]
+    targets: List[str]
 
-    # Embed the sentence into a vector
-    sentence = data['sentence']
-    example = data['example']
 
-    sentence_vector = model.encode(sentence, convert_to_tensor=True)
-    example_vector = model.encode(example, convert_to_tensor=True)
+class Result(BaseModel):
+    original: str
+    target: str
+    similarity: float
 
-    score = util.cos_sim(sentence_vector, example_vector).item()
 
-    return jsonify(round(score, 3))
+def get_vector(text):
+    vector = cache.get(text)
+    if not vector:
+        vector = model.encode(text)
+        cache.set(text, vector)
+    else:
+        cache.touch(text)
 
-@app.route('/embed', methods=['POST'])
-def embed_sentence():
-    data = request.get_json()
+    return vector
 
-    # Embed the sentence into a vector
-    sentence = data['sentence']
-    model = data['model']
+@app.post("/compare")
+def compare(data: CompareData):
+    originals = data.originals
+    targets = data.targets
 
-    sentence_vector = model.encode(sentence, convert_to_tensor=True)
+    results = []
+    combinations = [(original, target) for original in originals for target in targets]
 
-    return jsonify(sentence_vector)
+    for original, target in combinations:
+        original_vector = get_vector(original)
+        target_vector = get_vector(target)
+        similarity = model.similarity(original_vector, target_vector)
+        results.append(Result(original=original, target=target, similarity=similarity))
 
-if __name__ == '__main__':
-    app.run(debug=True)
+    sorted_results = sorted(results, key=lambda x: x.similarity, reverse=True)
+
+    return sorted_results
+
+
+@app.get("/info")
+def info():
+    return cache.info()
